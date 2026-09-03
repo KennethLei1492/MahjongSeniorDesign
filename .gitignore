@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Training outputs - checkpoints churn constantly while training runs
+# (latest.pt rewrites every 500 games); keep them out of git. Milestone
+# models can be published later via GitHub Releases or git-lfs if wanted.
+MahjongRL/checkpoints/
+MahjongRL/checkpoints_big/
+MahjongRL/checkpoints_faan/
+MahjongRL/deploy/
+
+# Machine-specific robot calibration
+MahjongRL/robot/positions.json
+MahjongRL/robot/table_calibration.json
+MahjongRL/robot/assets/templates/
+
+# Logs
+*.log

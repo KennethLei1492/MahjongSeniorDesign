@@ -1,0 +1,12 @@
+# Core training stack
+torch>=2.2
+numpy>=1.24
+
+# Robot deployment (host computer driving the NexArm)
+pyserial>=3.5           # raw Feetech bus fallback
+opencv-python>=4.8      # tile vision
+# lerobot                # optional: preferred NexArm backend + leader-arm
+                         # teleop; install per Hiwonder's NexArm instructions
+
+# Development
+pytest>=7.0

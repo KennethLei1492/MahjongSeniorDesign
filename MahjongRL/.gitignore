@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+checkpoints/
+deploy/
+robot/positions.json
+robot/table_calibration.json
+robot/assets/templates/
