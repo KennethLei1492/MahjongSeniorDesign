@@ -17,3 +17,6 @@ MahjongRL/robot/assets/templates/
 
 # Logs
 *.log
+
+# Claude Code internals
+.claude/
