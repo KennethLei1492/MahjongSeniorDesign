@@ -60,6 +60,18 @@ python -m robot.play_physical --dry-run   # policy loop without hardware
 any number of sessions (e.g. run it in a loop under Claude Code, on a lab
 GPU box, or overnight). Progress metrics land in `checkpoints/train_log.csv`.
 
+## Limited-reach fallback: manual hand-off mode
+
+If the arm's workspace cannot cover the wall or discards, run with
+`--handoff`: a player places each drawn/claimed tile into a hand-off zone
+inside the arm's reach (physically the `wall_pick` point), vision detects it
+there (`"handoff"` ROI in `table_calibration.json`), and play continues
+normally - the trained policy is unaffected. See `robot/handoff.py`.
+
+```bash
+python -m robot.play_physical --model deploy/challenger_win_400k.ts.pt --handoff
+```
+
 ## Hardware bring-up order
 
 1. Fill in ports/IDs in `robot/config.py` (marked `VERIFY`).

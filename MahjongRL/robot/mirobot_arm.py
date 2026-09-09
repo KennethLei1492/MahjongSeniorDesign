@@ -127,6 +127,12 @@ class MirobotArm:
         self._pick_place(tuple(self.pos["discard_drop"]),
                          tuple(self.pos["meld_drop"]))
 
+    def claim_handoff_tile(self):
+        """Hand-off mode: a human placed the claimed discard at wall_pick
+        (the hand-off zone); move it to the meld area."""
+        self._pick_place(tuple(self.pos["wall_pick"]),
+                         tuple(self.pos["meld_drop"]))
+
     def lay_meld(self, hand_slots):
         for slot in hand_slots:
             self._pick_place(self._hand_slot(slot),

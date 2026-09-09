@@ -89,6 +89,11 @@ def main():
     ap.add_argument("--auto", action="store_true",
                     help="fully autonomous: camera perceives, model decides, "
                          "arm acts - no keyboard input (see robot/autonomous.py)")
+    ap.add_argument("--handoff", action="store_true",
+                    help="manual hand-off mode: the arm cannot reach the "
+                         "wall/discards, so a player places each drawn or "
+                         "claimed tile in the hand-off zone (= wall_pick) "
+                         "and vision picks it up there (see robot/handoff.py)")
     args = ap.parse_args()
 
     model = torch.jit.load(args.model)
@@ -113,10 +118,38 @@ def main():
                         choose_action, hand_slot_of_kind)
         return
 
+    session = None
+    if args.handoff:
+        from .handoff import HandoffSession
+        session = HandoffSession(mirror, arm)
+
+    def handoff_kind(prompt_text):
+        """Kind-id of the tile a player placed in the hand-off zone."""
+        print(prompt_text)
+        if camera is not None:
+            from .handoff import wait_for_handoff_tile
+            kid = wait_for_handoff_tile(camera, classifier)
+            if kid is not None:
+                print(f"  detected: {Tile.from_kind_id(kid)}")
+                return kid
+            print("  no stable tile seen (timeout) - enter it manually")
+        while True:
+            raw = input("  tile kind id (0-33): ").strip()
+            try:
+                kid = int(raw)
+                if 0 <= kid <= 33:
+                    return kid
+            except ValueError:
+                pass
+            print(f"  not a tile kind: {raw!r} - try again")
+
     print("Physical play started. Commands:")
     print("  h 3,12,25,...   set our hand kinds (or auto from camera)")
     print("  d <seat> <kind> opponent at seat discarded tile kind")
     print("  t               our turn: draw happened, act")
+    if args.handoff:
+        print("  (hand-off mode: on 't' and on claims, place the tile in "
+              "the hand-off zone when prompted)")
     print("  q               quit")
 
     while True:
@@ -127,10 +160,14 @@ def main():
             break
         elif cmd[0] == "h":
             if len(cmd) > 1:
-                mirror.set_our_hand([int(k) for k in cmd[1].split(",")])
+                kinds = [int(k) for k in cmd[1].split(",")]
             else:
                 from .vision import read_hand
-                mirror.set_our_hand(read_hand(camera, classifier))
+                kinds = read_hand(camera, classifier)
+            if session:
+                session.set_rack(kinds)
+            else:
+                mirror.set_our_hand(kinds)
             print("hand:", mirror.game.players[0].hand)
         elif cmd[0] == "d":
             mirror.opponent_discarded(int(cmd[1]), int(cmd[2]))
@@ -142,10 +179,19 @@ def main():
                 print("*** MAHJONG! declare win ***")
             else:
                 print(f"claim: {a.type.name}")
-                arm.claim_tile()
+                if session:
+                    handoff_kind("place the claimed discard in the "
+                                 "hand-off zone")
+                    session.claim()
+                else:
+                    arm.claim_tile()
             mirror.game.phase = "discard"
             mirror.game.turn = 0
         elif cmd[0] == "t":
+            if session:
+                kid = handoff_kind("place our drawn tile in the "
+                                   "hand-off zone")
+                session.take_draw(kid)
             mirror.game.phase = "discard"
             mirror.game.turn = 0
             aid = choose_action(model, mirror)
@@ -153,14 +199,19 @@ def main():
             if a.type == ActionType.WIN:
                 print("*** MAHJONG! declare win ***")
             elif a.type == ActionType.DISCARD:
-                slot = hand_slot_of_kind(mirror, a.tile_kind)
-                print(f"discard {Tile.from_kind_id(a.tile_kind)} "
-                      f"from slot {slot}")
-                arm.discard_tile(slot)
-                me = mirror.game.players[0]
-                me.discards.append(
-                    next(t for t in me.hand if t.kind_id == a.tile_kind))
-                me.hand.remove(me.discards[-1])
+                if session:
+                    print(f"discard {Tile.from_kind_id(a.tile_kind)} from "
+                          f"slot {session.rack.index(a.tile_kind)}")
+                    session.discard(a.tile_kind)
+                else:
+                    slot = hand_slot_of_kind(mirror, a.tile_kind)
+                    print(f"discard {Tile.from_kind_id(a.tile_kind)} "
+                          f"from slot {slot}")
+                    arm.discard_tile(slot)
+                    me = mirror.game.players[0]
+                    me.discards.append(
+                        next(t for t in me.hand if t.kind_id == a.tile_kind))
+                    me.hand.remove(me.discards[-1])
             else:
                 print(f"action: {a.type.name}")
         else:

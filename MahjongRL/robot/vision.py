@@ -14,7 +14,9 @@ Pipeline:
 
 Regions of interest (pixel boxes) are calibrated once per table setup in
 robot/table_calibration.json:  {"hand": [x,y,w,h], "discard": [...],
-"wall": [...], "melds": [...]}.
+"wall": [...], "melds": [...], "handoff": [...]}.
+("handoff" covers the manual hand-off zone used by --handoff mode, where a
+player places tiles the arm cannot reach itself - see robot/handoff.py.)
 """
 import json
 import os
