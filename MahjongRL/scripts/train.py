@@ -70,7 +70,23 @@ def main():
                     help="minimum faan to declare a win. 0 = any 4 melds + "
                          "pair wins (project rule); 3 = traditional HK. "
                          "Train and deploy with the SAME value.")
+    ap.add_argument("--opponent-pool", default=None,
+                    help="comma-separated frozen checkpoints for league "
+                         "play: some games seat 3 copies of a pool opponent "
+                         "vs 1 learner seat, punishing self-play drift")
+    ap.add_argument("--league-prob", type=float, default=0.5,
+                    help="fraction of games played against the opponent "
+                         "pool instead of pure self-play")
     args = ap.parse_args()
+
+    opponent_paths = ([p.strip() for p in args.opponent_pool.split(",")
+                       if p.strip()] if args.opponent_pool else None)
+    if opponent_paths:
+        for p in opponent_paths:
+            if not os.path.exists(p):
+                sys.exit(f"opponent-pool checkpoint not found: {p}")
+        print(f"league play: {len(opponent_paths)} frozen opponent(s), "
+              f"p={args.league_prob}")
 
     workers = args.workers
     if workers == 0:
@@ -134,7 +150,8 @@ def main():
         from rl.parallel_self_play import ParallelCollector
         collector = ParallelCollector(
             workers, net_cfg,
-            min_faan=args.min_faan, reward=args.reward)
+            min_faan=args.min_faan, reward=args.reward,
+            opponent_paths=opponent_paths, league_prob=args.league_prob)
         try:
             # pipelined: workers play round k+1 while the learner updates on k
             collector.dispatch(model.state_dict(), gpi, games_played)
@@ -158,12 +175,21 @@ def main():
         finally:
             collector.stop()
     else:
+        opponents = []
+        for p in opponent_paths or []:
+            ck = torch.load(p, map_location="cpu")
+            m = build_model(args.device, **(ck.get("config") or {}))
+            m.load_state_dict(ck["model"])
+            m.eval()
+            opponents.append(m)
         while games_played < session_cap:
             t0 = time.time()
             batch, results = collect_batch(model, gpi, device=args.device,
                                            seed_base=games_played,
                                            min_faan=args.min_faan,
-                                           reward=args.reward)
+                                           reward=args.reward,
+                                           opponents=opponents,
+                                           league_prob=args.league_prob)
             model.train()
             metrics = trainer.update(batch)
             model.eval()

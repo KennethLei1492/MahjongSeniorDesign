@@ -23,9 +23,10 @@ from scripts.head2head import head2head
 # Every variant is benchmarked against the SAME baseline (the original 500k
 # champion) so curves stay comparable across models.
 VARIANT_DIRS = [("checkpoints_big", "big model 128ch/6blk/lstm256 win-reward"),
-                ("checkpoints_score", "big model 128ch/6blk/lstm256 score-reward")]
+                ("checkpoints_score", "big model 128ch/6blk/lstm256 score-reward"),
+                ("checkpoints_league", "big model 128ch/6blk/lstm256 league fine-tune")]
 CHAMPION = os.path.join("checkpoints", "model_500096_champion.pt")
-GAMES = 200
+GAMES = 400          # mirrored: 100 seeds x 4 seat rotations
 
 
 def eval_dir(ckpt_dir, label):
@@ -43,12 +44,12 @@ def eval_dir(ckpt_dir, label):
         if tag in done:
             continue
         path = os.path.join(ckpt_dir, name)
-        r = head2head(path, CHAMPION, games=GAMES, quiet=True)
+        r = head2head(path, CHAMPION, games=GAMES, quiet=True, mirror=True)
         stamp = datetime.date.today().isoformat()
         line = (f"{tag} (1 seat) vs 500k-champion table: A won {r['a_wins']}, "
                 f"champion won {r['b_wins']}, draws {r['draws']} "
                 f"-> {tag}'s share {r['a_share']:.1%} (25% = equal) "
-                f"[{label}, {GAMES} games, {stamp}]")
+                f"[{label}, {GAMES} games mirrored, {stamp}]")
         with open(results, "a") as f:
             f.write(line + "\n")
         print(line, flush=True)

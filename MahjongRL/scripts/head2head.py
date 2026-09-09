@@ -62,7 +62,11 @@ def play(model_a, model_b, a_seat, seed, min_faan=0):
 
 
 def head2head(path_a, path_b, games=80, min_faan=0, seed_base=77_000_000,
-              quiet=False):
+              quiet=False, mirror=False):
+    """mirror=True: common random numbers - each seed (wall/deal) is played
+    4 times with A rotating through every seat, so the same lucky hands hit
+    both sides and seat-share variance drops several-fold. Use a games count
+    that is a multiple of 4."""
     model_a, games_a = load_checkpoint(path_a)
     model_b, games_b = load_checkpoint(path_b)
     if not quiet:
@@ -70,7 +74,8 @@ def head2head(path_a, path_b, games=80, min_faan=0, seed_base=77_000_000,
         print(f"B: {path_b} ({games_b:,} games trained)  [3 seats]")
     a_wins = b_wins = draws = 0
     for g in range(games):
-        r = play(model_a, model_b, a_seat=g % 4, seed=seed_base + g,
+        seed = seed_base + (g // 4 if mirror else g)
+        r = play(model_a, model_b, a_seat=g % 4, seed=seed,
                  min_faan=min_faan)
         if r["type"] == "draw":
             draws += 1
@@ -96,5 +101,8 @@ if __name__ == "__main__":
     ap.add_argument("--b", required=True, help="baseline checkpoint (3 seats)")
     ap.add_argument("--games", type=int, default=80)
     ap.add_argument("--min-faan", type=int, default=0)
+    ap.add_argument("--mirror", action="store_true",
+                    help="common-seed mirrored seating (lower variance); "
+                         "use a multiple of 4 games")
     args = ap.parse_args()
-    head2head(args.a, args.b, args.games, args.min_faan)
+    head2head(args.a, args.b, args.games, args.min_faan, mirror=args.mirror)

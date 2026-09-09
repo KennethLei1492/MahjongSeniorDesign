@@ -5,7 +5,7 @@
 # process is alive it kills orphaned multiprocessing workers and restarts
 # training via the "MahjongRL Training 24-7" task.
 $log = 'C:\Users\kenne\OneDrive\Documents\MahjongSeniorDesign\MahjongRL\checkpoints_big\watchdog.log'
-$runlog = 'C:\Users\kenne\OneDrive\Documents\MahjongSeniorDesign\MahjongRL\checkpoints_score\forever_run.log'
+$runlog = 'C:\Users\kenne\OneDrive\Documents\MahjongSeniorDesign\MahjongRL\checkpoints_league\forever_run.log'
 # -OperationTimeoutSec: WMI goes sluggish when the CPU is thermally
 # throttled; without a timeout the whole watchdog run can wedge here.
 $procs = Get-CimInstance Win32_Process -Filter "Name='python.exe' or Name='py.exe'" -ErrorAction SilentlyContinue -OperationTimeoutSec 60

@@ -22,13 +22,22 @@ import torch
 
 
 def _worker_main(worker_id, task_q, result_q, model_kwargs, min_faan,
-                 reward):
+                 reward, opponent_paths, league_prob):
     torch.set_num_threads(1)  # one core per worker; the learner gets the rest
     from rl.model import build_model
     from rl.self_play import collect_batch
 
     model = build_model("cpu", **(model_kwargs or {}))
     model.eval()
+    # Frozen league opponents, loaded once - each checkpoint carries its own
+    # architecture config, so pool members may differ from the learner's.
+    opponents = []
+    for path in opponent_paths or []:
+        ck = torch.load(path, map_location="cpu")
+        m = build_model("cpu", **(ck.get("config") or {}))
+        m.load_state_dict(ck["model"])
+        m.eval()
+        opponents.append(m)
     while True:
         task = task_q.get()
         if task is None:
@@ -37,13 +46,15 @@ def _worker_main(worker_id, task_q, result_q, model_kwargs, min_faan,
         if weights is not None:
             model.load_state_dict(weights)
         batch, results = collect_batch(model, num_games, "cpu", seed_base,
-                                       min_faan=min_faan, reward=reward)
+                                       min_faan=min_faan, reward=reward,
+                                       opponents=opponents,
+                                       league_prob=league_prob)
         result_q.put((batch, results))
 
 
 class ParallelCollector:
     def __init__(self, num_workers, model_kwargs=None, min_faan=0,
-                 reward="win"):
+                 reward="win", opponent_paths=None, league_prob=0.5):
         self.n = num_workers
         ctx = mp.get_context("spawn")
         self.task_qs = [ctx.Queue() for _ in range(num_workers)]
@@ -51,7 +62,7 @@ class ParallelCollector:
         self.procs = [
             ctx.Process(target=_worker_main,
                         args=(i, self.task_qs[i], self.result_q, model_kwargs,
-                              min_faan, reward),
+                              min_faan, reward, opponent_paths, league_prob),
                         daemon=True)
             for i in range(num_workers)]
         for p in self.procs:

@@ -32,13 +32,18 @@ class Trajectory:
 
 
 def play_game(model, device="cpu", seed=None, greedy=False, min_faan=0,
-              reward="win"):
+              reward="win", opponent=None, learner_seat=0):
     """Play one hand; returns (list of 4 Trajectories, game.result).
 
     reward="win":   +1 to the winner, -1/3 to the other three, 0 on a draw.
                     The bot purely races to complete 4 melds + a pair.
     reward="score": zero-sum faan-based payouts (traditional HK scoring);
                     the bot trades speed against hand value.
+
+    League play: pass a frozen `opponent` model and the three seats other
+    than `learner_seat` are played by it - only the learner seat's
+    trajectory is recorded, so pure self-play strategy drift gets punished
+    by opponents the current policy cannot influence.
     """
     game = Game(GameConfig(seed=seed, min_faan=min_faan))
     trajs = [Trajectory() for _ in range(4)]
@@ -59,6 +64,10 @@ def play_game(model, device="cpu", seed=None, greedy=False, min_faan=0,
         pt = torch.from_numpy(planes).unsqueeze(0).to(device)
         ht = torch.from_numpy(hist).unsqueeze(0).to(device)
         mt = torch.from_numpy(mask).unsqueeze(0).to(device)
+        if opponent is not None and seat != learner_seat:
+            action, _, _ = opponent.act(pt, ht, mt, greedy=greedy)
+            game.step(int(action.item()))
+            continue
         action, logprob, value = model.act(pt, ht, mt, greedy=greedy)
         aid = int(action.item())
 
@@ -90,13 +99,27 @@ def play_game(model, device="cpu", seed=None, greedy=False, min_faan=0,
 
 
 def collect_batch(model, num_games, device="cpu", seed_base=0, min_faan=0,
-                  reward="win"):
-    """Play num_games and flatten transitions into arrays for PPO."""
+                  reward="win", opponents=None, league_prob=0.5):
+    """Play num_games and flatten transitions into arrays for PPO.
+
+    With `opponents` (list of frozen models), each game is a league game
+    with probability `league_prob`: one rotating learner seat vs three
+    seats of one pool opponent. The coin flip is derived from the seed so
+    runs stay reproducible.
+    """
     P, H, M, A, LP, V, RET = [], [], [], [], [], [], []
     results = []
     for g in range(num_games):
+        opponent, learner_seat = None, 0
+        if opponents:
+            rng = np.random.default_rng(seed_base + g)
+            if rng.random() < league_prob:
+                opponent = opponents[int(rng.integers(len(opponents)))]
+                learner_seat = g % 4
         trajs, result = play_game(model, device, seed=seed_base + g,
-                                  min_faan=min_faan, reward=reward)
+                                  min_faan=min_faan, reward=reward,
+                                  opponent=opponent,
+                                  learner_seat=learner_seat)
         results.append(result)
         for t in trajs:
             n = len(t.actions)
