@@ -9,7 +9,9 @@ cd /d "C:\Users\kenne\OneDrive\Documents\MahjongSeniorDesign\MahjongRL"
 if not exist checkpoints_score mkdir checkpoints_score
 :loop
 echo [%date% %time%] starting score-reward training >> checkpoints_score\forever_run.log
-py -3 -u scripts\train.py --ckpt-dir checkpoints_score --channels 128 --blocks 6 --lstm-hidden 256 --reward score >> checkpoints_score\forever_run.log 2>&1
+rem --workers 6 (not the auto 8): sustained 8-worker load thermally
+rem throttles this laptop to ~1.5GHz within hours, which is a net loss.
+py -3 -u scripts\train.py --ckpt-dir checkpoints_score --channels 128 --blocks 6 --lstm-hidden 256 --reward score --workers 6 >> checkpoints_score\forever_run.log 2>&1
 if %errorlevel%==0 goto done
 echo [%date% %time%] crashed with error %errorlevel%, restarting in 30s >> checkpoints_score\forever_run.log
 timeout /t 30 /nobreak >nul

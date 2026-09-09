@@ -18,25 +18,19 @@ foreach ($p in $procs) {
     try { (Get-Process -Id $p.ProcessId -ErrorAction Stop).PriorityClass = 'Normal' } catch {}
 }
 
-# The learner leaks memory over ~12h runs; once the system starts paging,
-# games slow from ~0.6s to 3s+. A restart (resumes from latest.pt, loses
-# <=500 games) restores full speed - kill the tree and let the .bat loop
-# or the dead-learner branch below bring it back.
+# Restart ONLY for the pathology a restart actually cures: the learner's
+# result-queue ballooning into multi-GB memory (paging death spiral, seen
+# 2026-09-03). Slow s/game alone is usually thermal throttling - restarting
+# for that just burns progress in a kill-loop (learned 2026-09-07).
 if ($learner) {
-    # Only treat sustained slowness as degradation: the last two iteration
-    # lines both slow, and at least 3 iterations since the last restart
-    # (the first iteration after a restart is always warmup-slow).
-    $tail = Get-Content $runlog -Tail 30 -ErrorAction SilentlyContinue
-    $lastStart = ($tail | Select-String 'starting challenger training' | Select-Object -Last 1).LineNumber
-    if (-not $lastStart) { $lastStart = 0 }
-    $iters = @($tail | Select-Object -Skip $lastStart | Where-Object { $_ -match 's/game' })
-    $speeds = @($iters | ForEach-Object { if ($_ -match '([\d.]+)s/game') { [double]$Matches[1] } })
-    if ($speeds.Count -ge 3 -and $speeds[-1] -gt 2.5 -and $speeds[-2] -gt 2.5) {
-        $Matches = @{ 1 = $speeds[-1] }
+    $memGB = [math]::Round((Get-Process -Id $learner.ProcessId -ErrorAction SilentlyContinue).WorkingSet64 / 1GB, 2)
+    # 6GB, not lower: the score-reward learner runs at ~4.5GB in normal
+    # healthy operation; the Sept-3 death spiral was 7GB+ and climbing.
+    if ($memGB -gt 6) {
         foreach ($p in $procs) {
             try { Stop-Process -Id $p.ProcessId -Force -Confirm:$false -ErrorAction Stop } catch {}
         }
-        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] slowdown ($($Matches[1])s/game, likely memory leak) - killed training for restart" | Add-Content $log
+        "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] learner memory balloon (${memGB}GB) - killed training for restart" | Add-Content $log
         $learner = $null
         Start-Sleep 5
         $procs = @()

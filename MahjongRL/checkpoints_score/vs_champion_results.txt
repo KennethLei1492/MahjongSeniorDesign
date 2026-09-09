@@ -1,0 +1,8 @@
+25088 (1 seat) vs 500k-champion table: A won 45, champion won 112, draws 43 -> 25088's share 28.7% (25% = equal) [big model 128ch/6blk/lstm256 score-reward, 200 games, 2026-09-06]
+50176 (1 seat) vs 500k-champion table: A won 34, champion won 129, draws 37 -> 50176's share 20.9% (25% = equal) [big model 128ch/6blk/lstm256 score-reward, 200 games, 2026-09-07]
+75264 (1 seat) vs 500k-champion table: A won 39, champion won 107, draws 54 -> 75264's share 26.7% (25% = equal) [big model 128ch/6blk/lstm256 score-reward, 200 games, 2026-09-07]
+100352 (1 seat) vs 500k-champion table: A won 36, champion won 119, draws 45 -> 100352's share 23.2% (25% = equal) [big model 128ch/6blk/lstm256 score-reward, 200 games, 2026-09-07]
+125440 (1 seat) vs 500k-champion table: A won 41, champion won 110, draws 49 -> 125440's share 27.2% (25% = equal) [big model 128ch/6blk/lstm256 score-reward, 200 games, 2026-09-08]
+150016 (1 seat) vs 500k-champion table: A won 37, champion won 125, draws 38 -> 150016's share 22.8% (25% = equal) [big model 128ch/6blk/lstm256 score-reward, 200 games, 2026-09-08]
+175104 (1 seat) vs 500k-champion table: A won 38, champion won 117, draws 45 -> 175104's share 24.5% (25% = equal) [big model 128ch/6blk/lstm256 score-reward, 200 games, 2026-09-08]
+200192 (1 seat) vs 500k-champion table: A won 36, champion won 125, draws 39 -> 200192's share 22.4% (25% = equal) [big model 128ch/6blk/lstm256 score-reward, 200 games, 2026-09-08]
