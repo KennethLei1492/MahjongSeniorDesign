@@ -9,6 +9,7 @@ MahjongRL/checkpoints/
 MahjongRL/checkpoints_big/
 MahjongRL/checkpoints_faan/
 MahjongRL/checkpoints_score/
+MahjongRL/checkpoints_league/
 MahjongRL/deploy/
 
 # Machine-specific robot calibration
