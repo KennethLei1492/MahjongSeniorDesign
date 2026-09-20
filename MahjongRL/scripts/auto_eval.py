@@ -26,7 +26,15 @@ VARIANT_DIRS = [("checkpoints_big", "big model 128ch/6blk/lstm256 win-reward"),
                 ("checkpoints_score", "big model 128ch/6blk/lstm256 score-reward"),
                 ("checkpoints_league", "big model 128ch/6blk/lstm256 league fine-tune")]
 CHAMPION = os.path.join("checkpoints", "model_500096_champion.pt")
-GAMES = 400          # mirrored: 100 seeds x 4 seat rotations
+GAMES = 200          # mirrored: 50 seeds x 4 seat rotations. Mirroring is
+                     # where the variance win comes from; 400 games proved
+                     # too slow on a throttled machine sharing CPU with
+                     # training (evals piled up for hours).
+LOCK = "auto_eval.lock"
+# Must be SHORTER than the scheduled task's ExecutionTimeLimit (3h): a
+# killed instance leaves its lock behind, and if the stale window outlives
+# the kill limit, later hourly runs skip forever (learned 2026-09-13).
+LOCK_STALE_S = 2 * 3600
 
 
 def eval_dir(ckpt_dir, label):
@@ -57,10 +65,24 @@ def eval_dir(ckpt_dir, label):
 
 def main():
     os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    for ckpt_dir, label in VARIANT_DIRS:
-        if os.path.isdir(ckpt_dir):
-            eval_dir(ckpt_dir, label)
-    print("auto_eval done", flush=True)
+    # Single-instance lock: Task Scheduler's time-limit kill orphans the
+    # python child, so hourly instances piled up 6 deep once evals got slow.
+    if os.path.exists(LOCK):
+        import time
+        if time.time() - os.path.getmtime(LOCK) < LOCK_STALE_S:
+            print("auto_eval already running - skipping", flush=True)
+            return
+        os.remove(LOCK)          # stale lock from a killed instance
+    with open(LOCK, "w") as f:
+        f.write(str(os.getpid()))
+    try:
+        for ckpt_dir, label in VARIANT_DIRS:
+            if os.path.isdir(ckpt_dir):
+                eval_dir(ckpt_dir, label)
+        print("auto_eval done", flush=True)
+    finally:
+        if os.path.exists(LOCK):
+            os.remove(LOCK)
 
 
 if __name__ == "__main__":
